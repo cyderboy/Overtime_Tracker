@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Weekly Hours & Overtime Tracker</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background-color: #f4f6f8;
+    }
+    h1 {
+        text-align: center;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        background: white;
+    }
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px;
+        text-align: center;
+    }
+    th {
+        background-color: #2c3e50;
+        color: white;
+    }
+    input[type="time"], input[type="text"] {
+        width: 100%;
+    }
+    select {
+        width: 100%;
+    }
+    .summary {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .positive {
+        color: green;
+        font-weight: bold;
+    }
+    .negative {
+        color: red;
+        font-weight: bold;
+    }
+    button {
+        padding: 10px 15px;
+        margin-top: 10px;
+        cursor: pointer;
+        border: none;
+        border-radius: 5px;
+    }
+    .reset-btn {
+        background-color: #e74c3c;
+        color: white;
+    }
+</style>
+</head>
+<body>
+
+<h1>Weekly Hours & Overtime Tracker</h1>
+
+<label>
+    Weekly Target Hours:
+    <input type="number" id="targetHours" value="40" step="0.5">
+</label>
+
+<table id="workTable">
+    <thead>
+        <tr>
+            <th>Day</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Postcodes Visited</th>
+            <th>Lunch Break Taken</th>
+            <th>Hours Worked</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<div class="summary">
+    <p>Total Hours This Week: <span id="weeklyTotal">0</span></p>
+    <p>Target Difference This Week: <span id="weeklyDifference">0</span></p>
+    <p>Carry Forward Balance: <span id="carryForward">0</span></p>
+    <p><strong>Final Balance (including carry forward): 
+        <span id="finalBalance">0</span>
+    </strong></p>
+    <button class="reset-btn" onclick="resetCarryForward()">Reset Carry Forward (Claim Submitted)</button>
+</div>
+
+<script>
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const tableBody = document.querySelector("#workTable tbody");
+
+let carryForward = parseFloat(localStorage.getItem("carryForward")) || 0;
+document.getElementById("carryForward").innerText = carryForward.toFixed(2);
+
+days.forEach(day => {
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+        <td>${day}</td>
+        <td><input type="time" class="start"></td>
+        <td><input type="time" class="end"></td>
+        <td><input type="text" placeholder="e.g. BS1, BS5"></td>
+        <td>
+            <select class="lunch">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+            </select>
+        </td>
+        <td class="dailyHours">0</td>
+    `;
+
+    tableBody.appendChild(row);
+});
+
+function calculateHours() {
+    let weeklyTotal = 0;
+
+    document.querySelectorAll("#workTable tbody tr").forEach(row => {
+        const start = row.querySelector(".start").value;
+        const end = row.querySelector(".end").value;
+        const lunch = row.querySelector(".lunch").value;
+        const hoursCell = row.querySelector(".dailyHours");
+
+        if (start && end) {
+            const startTime = new Date(`1970-01-01T${start}:00`);
+            const endTime = new Date(`1970-01-01T${end}:00`);
+            let diff = (endTime - startTime) / (1000 * 60 * 60);
+
+            if (lunch === "Yes") {
+                diff -= 0.5;
+            }
+
+            if (diff < 0) diff = 0;
+
+            hoursCell.innerText = diff.toFixed(2);
+            weeklyTotal += diff;
+        } else {
+            hoursCell.innerText = "0";
+        }
+    });
+
+    const target = parseFloat(document.getElementById("targetHours").value) || 40;
+    const weeklyDifference = weeklyTotal - target;
+    const finalBalance = carryForward + weeklyDifference;
+
+    document.getElementById("weeklyTotal").innerText = weeklyTotal.toFixed(2);
+    document.getElementById("weeklyDifference").innerText = weeklyDifference.toFixed(2);
+    document.getElementById("carryForward").innerText = carryForward.toFixed(2);
+
+    const finalBalanceElement = document.getElementById("finalBalance");
+    finalBalanceElement.innerText = finalBalance.toFixed(2);
+
+    if (finalBalance > 0) {
+        finalBalanceElement.className = "positive";
+    } else if (finalBalance < 0) {
+        finalBalanceElement.className = "negative";
+    } else {
+        finalBalanceElement.className = "";
+    }
+
+    localStorage.setItem("pendingBalance", finalBalance);
+}
+
+function resetCarryForward() {
+    carryForward = 0;
+    localStorage.setItem("carryForward", 0);
+    document.getElementById("carryForward").innerText = "0.00";
+    calculateHours();
+}
+
+document.addEventListener("input", calculateHours);
+
+window.addEventListener("beforeunload", () => {
+    const pendingBalance = parseFloat(localStorage.getItem("pendingBalance")) || 0;
+    localStorage.setItem("carryForward", pendingBalance);
+});
+</script>
+
+</body>
+</html>
